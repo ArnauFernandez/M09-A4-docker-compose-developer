@@ -23,8 +23,8 @@ RUN apt-get update && apt-get install -y \
     python3-venv \
     git \
     nano \
-    net-tools \
-    --no-install-recommends
+    curl \
+    net-tools 
 
 # Configurar entorno virtual Python
 RUN python3 -m venv /opt/venv
@@ -33,13 +33,6 @@ ENV PATH="/opt/venv/bin:$PATH"
 # Instalar Flask y dependencias
 RUN pip install flask psycopg2-binary
 
-# Instalar Visual Studio Code (paso completo)
-RUN wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > packages.microsoft.gpg \
-    && install -o root -g root -m 644 packages.microsoft.gpg /etc/apt/trusted.gpg.d/ \
-    && echo "deb [arch=amd64 signed-by=/etc/apt/trusted.gpg.d/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" > /etc/apt/sources.list.d/vscode.list \
-    && apt-get update \
-    && apt-get install -y code \
-    && rm -f packages.microsoft.gpg
 
 # Crear usuario developer
 RUN useradd -m -s /bin/bash developer \
@@ -47,13 +40,29 @@ RUN useradd -m -s /bin/bash developer \
     && usermod -aG sudo developer \
     && echo "developer ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 
-# Configurar VNC
+# Configuración de VNC
 USER developer
-RUN mkdir -p /home/developer/.vnc \
-    && echo "@ITB2024" | vncpasswd -f > /home/developer/.vnc/passwd \
-    && chmod 600 /home/developer/.vnc/passwd \
-    && echo '#!/bin/sh\nunset SESSION_MANAGER\nunset DBUS_SESSION_BUS_ADDRESS\nexec startxfce4' > /home/developer/.vnc/xstartup \
-    && chmod +x /home/developer/.vnc/xstartup
+RUN mkdir -p /home/developer/.vnc
+RUN echo "@ITB2024" | vncpasswd -f > /home/developer/.vnc/passwd && chmod 600 /home/developer/.vnc/passwd
+
+# Configuración de XFCE para VNC
+RUN echo "xrdb $HOME/.Xresources\nstartxfce4 &" > /home/developer/.vnc/xstartup && chmod +x /home/developer/.vnc/xstartup
+
+## vscode stuff
+USER root
+RUN curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > microsoft.gpg \
+  && mv microsoft.gpg /etc/apt/trusted.gpg.d/microsoft.gpg \
+  && sh -c 'echo "deb [arch=amd64] https://packages.microsoft.com/repos/vscode stable main" > /etc/apt/sources.list.d/vscode.list'
+
+## Install vscode in the specifc version
+RUN apt-get update && apt-get install -y code=1.88.1-1712771838 \
+  && apt-get install -f
+
+RUN cp /usr/lib/x86_64-linux-gnu/libxcb.so.1 /usr/share/code/ \
+  && cp /usr/lib/x86_64-linux-gnu/libxcb.so.1.1.0 /usr/share/code/ \
+  && sed -i 's/BIG-REQUESTS/_IG-REQUESTS/' /usr/share/code/libxcb.so.1 \
+  && sed -i 's/BIG-REQUESTS/_IG-REQUESTS/' /usr/share/code/libxcb.so.1.1.0
+RUN apt-get install xdg-utils --fix-missing -y
 
 # Script de inicio
 USER root
@@ -64,4 +73,7 @@ RUN chmod +x /startup.sh
 RUN apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-CMD ["/startup.sh"]
+#Exponer puertos necesarios
+EXPOSE 1222 5901
+
+CMD ["/bin/bash","/startup.sh"]

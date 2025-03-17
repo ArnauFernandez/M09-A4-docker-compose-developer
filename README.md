@@ -18,3 +18,7 @@
 ## Acceder por ssh a developer
 
 ### deberemos acceder por ssh dentro del mismo contenedor usaremos la redirección de puertos ssh -p 1222 developer@localhost pw @ITB2024
+
+## Acceder por vnc a developer
+
+### deberemos acceder a nuestro servidor de vnc como por ejemplo Remmina y seleccionar vnc e introducir localhost:5901
